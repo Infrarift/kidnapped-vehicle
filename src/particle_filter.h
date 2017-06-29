@@ -8,11 +8,9 @@
 
 #ifndef PARTICLE_FILTER_H_
 #define PARTICLE_FILTER_H_
-
 #include "helper_functions.h"
 
 struct Particle {
-
 	int id;
 	double x;
 	double y;
@@ -23,31 +21,20 @@ struct Particle {
 	std::vector<double> sense_y;
 };
 
-
-
 class ParticleFilter {
 	
-	// Number of particles to draw
 	int num_particles; 
-	
-	
-	
-	// Flag, if filter is initialized
 	bool is_initialized;
-	
-	// Vector of weights of all particles
+	std::default_random_engine seed;
 	std::vector<double> weights;
-	
+	Particle SpawnGaussianParticle(int id, std::normal_distribution<double> dist_x, std::normal_distribution<double> dist_y, std::normal_distribution<double> dist_theta);
+	void AddPredictionNoise(double* std_pos, Particle& particle);
+	void PredictParticleMotion(double delta_t, double velocity, double yaw_rate, double theta_dt, double v_over_yaw, Particle& particle);
+
 public:
 	
-	// Set of current particles
 	std::vector<Particle> particles;
-
-	// Constructor
-	// @param M Number of particles
 	ParticleFilter() : num_particles(0), is_initialized(false) {}
-
-	// Destructor
 	~ParticleFilter() {}
 
 	/**
