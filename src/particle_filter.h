@@ -10,30 +10,45 @@
 #define PARTICLE_FILTER_H_
 #include "helper_functions.h"
 
+using std::default_random_engine;
+using std::normal_distribution;
+using std::vector;
+
 struct Particle {
 	int id;
 	double x;
 	double y;
 	double theta;
 	double weight;
-	std::vector<int> associations;
-	std::vector<double> sense_x;
-	std::vector<double> sense_y;
+	vector<int> associations;
+	vector<double> sense_x;
+	vector<double> sense_y;
 };
 
 class ParticleFilter {
 	
 	int num_particles; 
 	bool is_initialized;
-	std::default_random_engine seed;
-	std::vector<double> weights;
-	Particle SpawnGaussianParticle(int id, std::normal_distribution<double> dist_x, std::normal_distribution<double> dist_y, std::normal_distribution<double> dist_theta);
+	double association_cutoff_distance;
+	default_random_engine seed;
+	vector<double> weights;
+
+	Particle SpawnGaussianParticle(int id, normal_distribution<double>& dist_x, normal_distribution<double>& dist_y, normal_distribution<double>& dist_theta);
 	void AddPredictionNoise(double* std_pos, Particle& particle);
-	void PredictParticleMotion(double delta_t, double velocity, double yaw_rate, double theta_dt, double v_over_yaw, Particle& particle);
+	void CalculateMotionWithZeroYaw(double delta_t, double velocity, Particle& particle) const;
+	void CalculateMotionWithNonZeroYaw(double delta_t, double yaw_rate, double v_over_yaw, Particle& particle) const;
+	void PredictParticleMotion(double delta_t, double velocity, double yaw_rate, double theta_dt, double v_over_yaw, Particle& particle) const;
+
+	static bool IsLandmarkOutOfRange(double range_sq, double translate_x, double translate_y);
+	static void TransformAndAddLandmarkToPrediction(vector<LandmarkObs>& predicted_landmark_obs, double cos_theta, double sin_theta, Map::single_landmark_s landmark, double translate_x, double translate_y);
+	double CalculateLandmarkWeight(double sigma_x_2sq, double sigma_y_2sq, double outer_term, LandmarkObs observed_lm, LandmarkObs predicted_lm) const;
+	bool CheckLandmarkRange(LandmarkObs& observed_lm, LandmarkObs*& predicted_lm, double& min_distance, LandmarkObs current_landmark) const;
+	double CalculateParticleWeight(double sensor_range, vector<LandmarkObs> observations, Map map_landmarks, double sigma_x_2sq, double sigma_y_2sq, double outer_term, Particle& particle) const;
+	vector<LandmarkObs> TransformLandmarksFromMapToCarSpace(double sensor_range, Map map_landmarks, Particle& particle) const;
 
 public:
 	
-	std::vector<Particle> particles;
+	vector<Particle> particles;
 	ParticleFilter() : num_particles(0), is_initialized(false) {}
 	~ParticleFilter() {}
 
@@ -58,15 +73,7 @@ public:
 	 * @param yaw_rate Yaw rate of car from t to t+1 [rad/s]
 	 */
 	void prediction(double delta_t, double std_pos[], double velocity, double yaw_rate);
-	
-	/**
-	 * dataAssociation Finds which observations correspond to which landmarks (likely by using
-	 *   a nearest-neighbors data association).
-	 * @param predicted Vector of predicted landmark observations
-	 * @param observations Vector of landmark observations
-	 */
-	void dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations);
-	
+
 	/**
 	 * updateWeights Updates the weights for each particle based on the likelihood of the 
 	 *   observed measurements. 
@@ -76,7 +83,7 @@ public:
 	 * @param observations Vector of landmark observations
 	 * @param map Map class containing map landmarks
 	 */
-	void updateWeights(double sensor_range, double std_landmark[], std::vector<LandmarkObs> observations,
+	void updateWeights(double sensor_range, double std_landmark[], vector<LandmarkObs> observations,
 			Map map_landmarks);
 	
 	/**
@@ -89,7 +96,7 @@ public:
 	 * Set a particles list of associations, along with the associations calculated world x,y coordinates
 	 * This can be a very useful debugging tool to make sure transformations are correct and assocations correctly connected
 	 */
-	Particle SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y);
+	Particle SetAssociations(Particle particle, vector<int> associations, vector<double> sense_x, vector<double> sense_y);
 	
 	std::string getAssociations(Particle best);
 	std::string getSenseX(Particle best);
